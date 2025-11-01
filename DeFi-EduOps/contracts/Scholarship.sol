@@ -1,26 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-/// @title Scholarship Contract (basic)
-// Note: This is a minimal, audit-needed example for testnets only.
-// Functions separate approval and release for better control.
+/*
+ * MicroLoan.sol
+ * Simple POC for micro-loans. Admin funds pool, admin issues loans, borrowers repay.
+ * NOT production-ready: interest math, collateral, and security checks are simplified.
+ */
 
-contract Scholarship {
+contract MicroLoan {
     address public admin;
-    uint public minGPA = 8; // example threshold (scale 0-10)
-    event StudentRegistered(address indexed student, uint amount, uint gpa);
-    event ScholarshipApproved(address indexed student, uint amount);
-    event ScholarshipReleased(address indexed student, uint amount);
+    uint public loanCounter;
 
-    struct Student {
-        address wallet;
-        uint gpa;      // store as integer, e.g., 85 for 8.5 if you choose that scale
-        uint amount;   // in wei
-        bool approved;
-        bool paid;
+    struct Loan {
+        uint id;
+        address borrower;
+        uint principal;
+        uint interest; // fixed amount in wei for POC
+        uint dueDate;
+        bool repaid;
     }
 
-    mapping(address => Student) public students;
+    mapping(uint => Loan) public loans;
+    mapping(address => uint[]) public borrowerLoans;
+
+    event LoanCreated(uint indexed id, address indexed borrower, uint principal, uint interest, uint dueDate);
+    event LoanRepaid(uint indexed id, address indexed borrower, uint amount);
+    event FundsDeposited(address indexed from, uint amount);
+    event AdminWithdraw(address indexed to, uint amount);
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "Only admin");
@@ -29,37 +35,47 @@ contract Scholarship {
 
     constructor() {
         admin = msg.sender;
+        loanCounter = 0;
     }
 
-    /// @notice Register or update a student's record (admin or offchain verifier should call)
-    function registerStudent(address _wallet, uint _gpa, uint _amount) public onlyAdmin {
-        students[_wallet] = Student(_wallet, _gpa, _amount, false, false);
-        emit StudentRegistered(_wallet, _amount, _gpa);
+    receive() external payable {
+        emit FundsDeposited(msg.sender, msg.value);
     }
 
-    /// @notice Approve a scholarship for a registered student (can be called by admin or automated workflow)
-    function approveScholarship(address _wallet) public onlyAdmin {
-        Student storage s = students[_wallet];
-        require(s.wallet != address(0), "Not registered");
-        require(!s.approved, "Already approved");
-        s.approved = true;
-        emit ScholarshipApproved(_wallet, s.amount);
-    }
-
-    /// @notice Release funds to an approved student
-    function releaseScholarship(address payable _wallet) public onlyAdmin {
-        Student storage s = students[_wallet];
-        require(s.approved, "Not approved");
-        require(!s.paid, "Already paid");
-        uint amt = s.amount;
-        require(address(this).balance >= amt, "Insufficient contract balance");
-        s.paid = true;
-        (bool ok, ) = _wallet.call{value: amt}("");
+    // Admin creates a loan and transfers principal to borrower
+    function createLoan(address payable _borrower, uint _principal, uint _interest, uint _durationDays) public onlyAdmin {
+        require(address(this).balance >= _principal, "Insufficient pool balance");
+        loanCounter += 1;
+        uint due = block.timestamp + (_durationDays * 1 days);
+        loans[loanCounter] = Loan(loanCounter, _borrower, _principal, _interest, due, false);
+        borrowerLoans[_borrower].push(loanCounter);
+        (bool ok, ) = _borrower.call{value: _principal}("");
         require(ok, "Transfer failed");
-        emit ScholarshipReleased(_wallet, amt);
+        emit LoanCreated(loanCounter, _borrower, _principal, _interest, due);
     }
 
-    /// @notice Allow contract to receive funds (fund the scholarship pool)
-    receive() external payable {}
-    fallback() external payable {}
+    // Borrower repays loan (principal + interest)
+    function repayLoan(uint _loanId) public payable {
+        Loan storage l = loans[_loanId];
+        require(l.id != 0, "Loan not exist");
+        require(!l.repaid, "Already repaid");
+        uint dueAmount = l.principal + l.interest;
+        require(msg.value >= dueAmount, "Insufficient repayment");
+        l.repaid = true;
+        emit LoanRepaid(_loanId, msg.sender, msg.value);
+        // Funds stay in contract; admin may withdraw later
+    }
+
+    // Admin withdraws (for demo)
+    function adminWithdraw(uint _amount) public onlyAdmin {
+        require(address(this).balance >= _amount, "Insufficient balance");
+        (bool ok, ) = payable(admin).call{value: _amount}("");
+        require(ok, "Withdraw failed");
+        emit AdminWithdraw(admin, _amount);
+    }
+
+    // Get borrower loans
+    function getBorrowerLoans(address _borrower) public view returns (uint[] memory) {
+        return borrowerLoans[_borrower];
+    }
 }

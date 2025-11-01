@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DeFi-EduOps — Scholarship Portal</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>DeFi-EduOps — Scholarship Portal</h1>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Apply for Scholarship</h2>
+      <form id="scholarshipForm">
+        <label>Full Name
+          <input id="name" name="name" required />
+        </label>
+        <label>GPA (0-10)
+          <input id="gpa" name="gpa" type="number" step="0.1" min="0" max="10" required />
+        </label>
+        <label>Wallet Address (MetaMask)
+          <input id="wallet" name="wallet" required />
+        </label>
+        <label>Requested Amount (in ETH/MATIC)
+          <input id="amount" name="amount" type="number" step="0.0001" required />
+        </label>
+        <button type="submit">Submit Application</button>
+      </form>
+      <div id="formStatus"></div>
+    </section>
+
+    <section class="card">
+      <h2>Wallet</h2>
+      <button id="connectWallet">Connect MetaMask</button>
+      <div id="walletAddress">Not connected</div>
+    </section>
+
+    <section class="card">
+      <h2>Admin</h2>
+      <label>Student Wallet
+        <input id="adminStudentWallet" />
+      </label>
+      <button id="adminRelease">Release Funds (Admin)</button>
+      <div id="adminStatus"></div>
+    </section>
+  </main>
+
+  <footer>
+    <small>DeFi-EduOps • Demo POC</small>
+  </footer>
+
+  <script src="js/wallet.js"></script>
+  <script src="js/scholarship.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

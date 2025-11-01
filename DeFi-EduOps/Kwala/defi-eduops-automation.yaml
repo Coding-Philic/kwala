@@ -1,12 +1,58 @@
-# KWALA workflow placeholder - Step 1 (we'll expand in Step 2+)
 name: defi-eduops-automation
 execution: serverless
 
+# Trigger: when frontend posts /webhook/form_submitted
 triggers:
   - webhook_event:
-      endpoint: "/form_submitted"
+      name: scholarship_form_submitted
+      endpoint: /form_submitted
+      description: "Student submits scholarship application"
 
 actions:
-  - log:
-      message: "Received submission: {payload}"
-# (Detailed conditions, contract_call actions and error handling will be added in later steps)
+  - condition:
+      name: check_eligibility
+      if: "event.data.gpa >= 8"
+      then:
+        - contract_call:
+            name: approve_scholarship
+            chain: kwala-testnet
+            contract_address: "0xSCHOLAR_ADDR"
+            abi: |
+              # Paste Scholarship ABI JSON here OR use KWALA's file upload option
+        # After approval, send a notification to frontend/dashboard
+        - webhook:
+            url: "https://YOUR_FRONTEND_OR_DASHBOARD_ENDPOINT/scholarship_status"
+            method: POST
+            body:
+              wallet: "{{event.data.wallet}}"
+              status: "approved"
+              name: "{{event.data.name}}"
+      else:
+        - webhook:
+            url: "https://YOUR_FRONTEND_OR_DASHBOARD_ENDPOINT/scholarship_status"
+            method: POST
+            body:
+              wallet: "{{event.data.wallet}}"
+              status: "rejected"
+              reason: "GPA below threshold"
+
+# Manual action for admin to release funds (can be called from KWALA console)
+  - manual_trigger:
+      name: admin_release_funds
+      description: "Admin triggers funds release for a student"
+      inputs:
+        - name: student_wallet
+          type: string
+      steps:
+        - contract_call:
+            name: release_funds
+            chain: kwala-testnet
+            contract_address: "0xSCHOLAR_ADDR"
+            abi: |
+              # Paste Scholarship ABI JSON here (or attach via console)
+        - webhook:
+            url: "https://YOUR_FRONTEND_OR_DASHBOARD_ENDPOINT/fund_released"
+            method: POST
+            body:
+              wallet: "{{inputs.student_wallet}}"
+              status: "paid"
