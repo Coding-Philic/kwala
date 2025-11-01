@@ -1,0 +1,12 @@
+# KWALA workflow placeholder - Step 1 (we'll expand in Step 2+)
+name: defi-eduops-automation
+execution: serverless
+
+triggers:
+  - webhook_event:
+      endpoint: "/form_submitted"
+
+actions:
+  - log:
+      message: "Received submission: {payload}"
+# (Detailed conditions, contract_call actions and error handling will be added in later steps)
